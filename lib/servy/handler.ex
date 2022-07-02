@@ -27,6 +27,16 @@ defmodule Servy.Handler do
     |> format_response()
   end
 
+  def route(%Conv{method: "GET", path: "/pledges/new"} = conv) do
+    Servy.PledgeController.new(conv)
+  end
+
+  def route(%Conv{method: "GET", path: "/404s"} = conv) do
+    counts = Servy.FourOhFourCounter.get_counts()
+
+    %{ conv | status: 200, resp_body: inspect counts }
+  end
+
   def route(%Conv{method: "POST", path: "/pledges"} = conv) do
     Servy.PledgeController.create(conv, conv.params)
   end
@@ -37,16 +47,9 @@ defmodule Servy.Handler do
 
 
   def route(%Conv{ method: "GET", path: "/sensors" } = conv) do
-    task = Task.async(fn -> Servy.Tracker.get_location("bigfoot") end)
+    data = Servy.SensorServer.get_sensor_data()
 
-    snapshots =
-      ["cam-1", "cam-2", "cam-3"]
-      |> Enum.map(&Task.async(fn -> VideoCam.get_snapshot(&1) end))
-      |> Enum.map(&Task.await/1)
-
-    where_is_bigfoot = Task.await(task)
-
-    render(conv, "sensors.eex", snapshots: snapshots, location: where_is_bigfoot)
+    render(conv, "sensors.eex", [snapshots: data.snapshots, location: data.location])
   end
 
   def route(%Conv{method: "GET", path: "/hibernate/" <> time } = conv) do
